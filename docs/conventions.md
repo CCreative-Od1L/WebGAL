@@ -139,6 +139,69 @@ BREAKING CHANGE: mitt 事件类型不再使用字符串字面量，必须
 
 PR 标题 = **squash merge 时将采用的 commit 信息**，必须遵循同一规范。
 
+---
+
+## 未来增强：机械化强制规范
+
+> 此章节记录**待评估的强化方案**，当前**未实施**。当维护压力出现时再启用。
+
+### 候选方案
+
+#### 方案 A：commitlint + husky（强制式）
+
+提交时自动检查，不符合规范直接拒绝。
+
+**组件**：
+- `@commitlint/cli` + `@commitlint/config-conventional` — 规范检查
+- `husky` — Git 钩子管理器
+
+**安装**：
+```bash
+yarn add -D @commitlint/cli @commitlint/config-conventional husky
+cat > commitlint.config.js << 'EOF'
+module.exports = { extends: ['@commitlint/config-conventional'] };
+EOF
+yarn husky init
+yarn husky add .husky/commit-msg 'yarn commitlint --edit "$1"'
+```
+
+**优点**：强制性强，无法绕过
+**缺点**：增加依赖；**不能提交到上游**；老 commit 不受影响但已不规范
+
+**绕过**：`git commit --no-verify -m "..."`
+
+#### 方案 B：commitizen（向导式）
+
+不强制，但提供交互式提交向导（选 type → 填 scope → 写 subject）。
+
+**安装**：
+```bash
+npx commitizen init cz-conventional-changelog --save-dev --save-exact
+```
+
+**使用**：`git cz` 代替 `git commit`
+
+**优点**：轻量，不强制，适合探索期
+**缺点**：没有强制力
+
+### 启用时机
+
+满足以下任一条件时再考虑启用方案 A：
+- 开始规律性地给上游提 PR
+- 邀请他人加入 fork
+- 多次发现自己不自觉地写不规范 commit
+
+当前阶段（个人探索 fork）**不推荐**启用，理由：
+1. 节奏优先于规范
+2. 已能自觉执行（9 个 commit 全合规）
+3. 加 husky 后未来 cherry-pick 老 commit 时可能踩坑
+
+### 注意事项
+
+- 这些工具的**配置文件和依赖不提交到上游**
+- 如果未来真的需要，单独在一个 commit 里加，并标记为 `chore`
+- 考虑使用 `.husky/` 的 `.gitignore` 处理（虽然本项目目前不用）
+
 ## 注释约定
 
 - 文件顶部用 JSDoc `@file` 说明文件用途
