@@ -20,7 +20,7 @@
 | [docs/architecture.md](./docs/architecture.md) | 核心架构：双层渲染、目录树、脚本执行流 |
 | [docs/commands.md](./docs/commands.md) | 常用命令 |
 | [docs/conventions.md](./docs/conventions.md) | 命名与代码约定 |
-| [docs/workflow.md](./docs/workflow.md) | **个人开发约定**（分支策略、提 PR 流程、cherry-pick 同步） |
+| [docs/workflow.md](./docs/workflow.md) | **个人开发约定**（分支策略、提 PR 流程、cherry-pick 同步、rebase） |
 | [docs/issues-screening.md](./docs/issues-screening.md) | 开放 Issue 筛选清单（按难度分级） |
 | [docs/ai-collaboration.md](./docs/ai-collaboration.md) | 与 AI 助手协作的建议 |
 
@@ -31,7 +31,7 @@
 ## 三条铁律
 
 1. **私人配置留在 `pleggen_workspace`**：`.claude/`、`docs/`、`CLAUDE.md`、`settings.local.json` 绝不进 PR
-2. **修 Bug → 从干净的 `main` 拉分支**，不直接在 `pleggen_workspace` 上做
+2. **修复 / 新功能分支从 `upstream/dev` 拉**（不是 `main`）— PR base 必须是 `dev`
 3. **`packages/parser/` 慎动**：它是独立 npm 包，改动需同步发包
 
 ---
@@ -50,4 +50,18 @@ Redux       packages/webgal/src/store/
 
 ---
 
-*最后更新：2026-06-10*
+## 远程仓库
+
+| Remote | URL | 用途 |
+|--------|-----|------|
+| `origin` | `https://github.com/CCreative-Od1L/WebGAL.git` | 你的 fork（push 目标）|
+| `upstream` | `https://github.com/OpenWebGAL/WebGAL.git` | 上游（提 PR 目标）|
+
+如果 `upstream` 没配置：
+```bash
+git remote add upstream https://github.com/OpenWebGAL/WebGAL.git
+```
+
+---
+
+*最后更新：2026-06-15（增加 dev 分支约定和 upstream remote 配置）*
