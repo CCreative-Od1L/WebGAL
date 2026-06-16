@@ -37,6 +37,14 @@ export const playEffect = (sentence: ISentence): IPerform => {
     isHoldOn: isLoop,
     skipNextCollect: true,
     startFunction: () => {
+      // 防御性 guard：防止 startFunction 在同一 perform 上被重复调用时
+      // 创建多个 <audio> 元素。旧版本（pre-RFC1）曾因 performName 异步解析
+      // 导致 unmountPerform 找不到旧 perform，使旧音频成为孤儿继续播放，
+      // 与新音频叠加出现"重叠"现象。当前代码下也可能在 fast-forward
+      // + 动画的边缘场景触发相同症状（见 #870）。
+      if (seElement) {
+        return;
+      }
       let volume = getNumberArgByKey(sentence, 'volume') ?? 100; // 获取音量比
       volume = Math.max(0, Math.min(volume, 100)); // 限制音量在 0-100 之间
       seElement = document.createElement('audio');
