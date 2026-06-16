@@ -22,6 +22,7 @@
 | [workflow.md](./workflow.md) | **个人开发约定**（分支策略、提 PR 流程、cherry-pick 同步） |
 | [ai-collaboration.md](./ai-collaboration.md) | 与 AI 助手协作的建议 |
 | [issues-screening.md](./issues-screening.md) | 开放 Issue 筛选清单（按难度分级） |
+| [wip/](./wip/) | 进行中工作的存档（暂停/交接用） |
 
 ### 索引
 
