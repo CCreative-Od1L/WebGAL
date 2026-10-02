@@ -8,29 +8,25 @@
 
 #### 新功能
 
-优化编辑器实时预览，提升场景跳转和状态同步的稳定性，并支持调试变量、模板刷新和更多界面预览设置。
+新增立绘差分切换。用于为立绘更换表情等差分。执行此指令时，位置、效果和层级都保持不变，尺寸相同的图片之间会平滑过渡。
 
-changeBg / changeFigure / setTransition / setAnimation / setTempAnimation / setTransform 支持 ignoreDefault 参数，可让自定义动画忽略未声明的默认变换和效果。
+设置变换与动画时，可以选择从立绘当前的状态开始，还是从默认状态开始。
 
-CG 鉴赏支持按 series 分组并按 order 排序，系列图片可堆叠显示并依次预览。
-
-新增 Enable_Continue 配置项，可控制继续游戏按钮是否显示；无自动存档时按钮会置灰，游戏结束时会清理自动存档。
-
-新增巴西葡萄牙语和韩语，并将语言设置优化为下拉选择。
+优化资源的预加载与缓存，切换背景和立绘更加流畅。
 
 #### 修复
 
-修复使用 vocal 参数指定语音时资源路径解析错误的问题。
+修复自动播放时，等待之后接续的对话会瞬间全部显示，以及等待时间被提前结束的问题。
 
-修复快速预览、滚轮推进和重置舞台后，快进与动画状态可能不一致的问题。
+修复对话最后几个字还在渐显时突然全部显示的问题。文字速度设置现在也会影响每个字渐显的快慢。
 
-修复长场景连续推进时可能发生调用栈溢出的问题。
+修复接续的对话中包含英文或标点时，文字显示异常的问题。
 
-修复自定义模板样式仍受引擎默认样式干扰的问题。
+修复设置页中的文字速度预览可能被正在进行的剧情打断的问题。
 
-修复非官方引擎构建时自身版本号被错误覆盖的问题。
+修复在图形化编辑器中调整效果时，实时预览中的立绘可能丢失缩放、滤镜等效果的问题。
 
-修复自定义模板未包含 game/tex 纹理文件时，内置雨、雪和樱花特效无法显示的问题。
+修复资源较多的长场景加载缓慢的问题。
 
 <!-- English Translation -->
 ## Release Notes
@@ -43,29 +39,25 @@ CG 鉴赏支持按 series 分组并按 order 排序，系列图片可堆叠显�
 
 #### New Features
 
-Improved editor live preview with more reliable scene navigation and state synchronization, plus support for debug variables, template refreshes, and additional interface preview settings.
+Added figure variant switching, which changes a figure's variant, such as its expression. When this command runs, the figure's position, effects, and layer stay the same, and images of the same size blend smoothly.
 
-changeBg / changeFigure / setTransition / setAnimation / setTempAnimation / setTransform now support the ignoreDefault argument, allowing custom animations to ignore undeclared default transforms and effects.
+When setting transforms and animations, you can now choose whether to start from the figure's current state or from the default state.
 
-The CG gallery now supports grouping by series and sorting by order, with series images displayed as a stack for sequential preview.
-
-Added the Enable_Continue configuration option to control whether the Continue button is shown; it is disabled without an autosave, and autosaves are cleared when the game ends.
-
-Added Brazilian Portuguese and Korean translations, and improved language settings with a dropdown selector.
+Improved resource preloading and caching, so switching backgrounds and figures is smoother.
 
 #### Fixes
 
-Fixed incorrect voice asset path resolution when specifying voice files with the vocal argument.
+Fixed continued dialogue appearing all at once after a wait during auto-play, and the wait ending early.
 
-Fixed fast-forward and animation states becoming inconsistent after fast preview, mouse-wheel advancement, or stage reset.
+Fixed the last few characters of dialogue appearing all at once while they were still fading in. The text speed setting now also controls how fast each character fades in.
 
-Fixed possible call stack overflow when advancing continuously through long scenes.
+Fixed display issues when continued dialogue contained English words or punctuation.
 
-Fixed custom template styles still being affected by engine default styles.
+Fixed the text speed preview on the settings page being interrupted by the ongoing story.
 
-Fixed version numbers of unofficial engine packages being overwritten incorrectly during builds.
+Fixed figures in the graphical editor's live preview possibly losing effects such as scale and filters while adjusting effects.
 
-Fixed built-in rain, snow, and cherry blossom effects not displaying when custom templates do not include the game/tex texture files.
+Fixed slow loading of long scenes with many resources.
 
 <!-- Japanese Translation -->
 ## リリースノート
@@ -78,26 +70,22 @@ Fixed built-in rain, snow, and cherry blossom effects not displaying when custom
 
 #### 新機能
 
-エディターのリアルタイムプレビューを改善し、シーン移動と状態同期の安定性を向上しました。また、デバッグ変数、テンプレート更新、より多くの画面プレビュー設定に対応しました。
+立ち絵の差分切り替えを追加しました。立ち絵の表情などの差分を変更するためのものです。この命令を実行しても、位置、エフェクト、レイヤーはそのまま保持され、同じサイズの画像同士はなめらかに切り替わります。
 
-changeBg / changeFigure / setTransition / setAnimation / setTempAnimation / setTransform が ignoreDefault 引数に対応し、カスタムアニメーションで未指定のデフォルト変換やエフェクトを無視できるようになりました。
+変換やアニメーションを設定するときに、立ち絵の現在の状態から始めるか、デフォルトの状態から始めるかを選べるようになりました。
 
-CG 鑑賞が series によるグループ化と order による並べ替えに対応し、シリーズ画像を重ねて表示して順番にプレビューできるようになりました。
-
-続きからボタンの表示を制御する Enable_Continue 設定を追加しました。自動セーブがない場合はボタンが無効になり、ゲーム終了時には自動セーブが削除されます。
-
-ブラジルポルトガル語と韓国語を追加し、言語設定をドロップダウン選択に改善しました。
+リソースの先読みとキャッシュを改善し、背景や立ち絵の切り替えがよりスムーズになりました。
 
 #### 修正
 
-vocal 引数でボイスを指定した際、アセットパスが正しく解決されない問題を修正しました。
+オートプレイ中、待機のあとに続くセリフが一度にすべて表示される問題と、待機時間が途中で打ち切られる問題を修正しました。
 
-高速プレビュー、マウスホイールによる進行、舞台リセット後に、早送りとアニメーションの状態が一致しない問題を修正しました。
+セリフの最後の数文字がフェードイン中に突然すべて表示される問題を修正しました。文字速度の設定が、各文字のフェードインの速さにも反映されるようになりました。
 
-長いシーンを連続して進めた際に、コールスタックのオーバーフローが発生する場合がある問題を修正しました。
+続きのセリフに英単語や句読点が含まれる場合に、文字が正しく表示されない問題を修正しました。
 
-カスタムテンプレートのスタイルがエンジンのデフォルトスタイルの影響を受ける問題を修正しました。
+設定画面の文字速度プレビューが、進行中のストーリーによって中断されることがある問題を修正しました。
 
-非公式エンジンのビルド時に拡張パッケージのバージョン番号が誤って上書きされる問題を修正しました。
+グラフィカルエディターでエフェクトを調整する際、リアルタイムプレビューの立ち絵から拡大縮小やフィルターなどのエフェクトが失われることがある問題を修正しました。
 
-カスタムテンプレートに game/tex のテクスチャファイルが含まれていない場合、内蔵の雨、雪、桜エフェクトが表示されない問題を修正しました。
+リソースの多い長いシーンの読み込みが遅い問題を修正しました。

@@ -1,6 +1,6 @@
 import { ISentence } from '@/Core/controller/scene/sceneInterface';
 import { IPerform } from '@/Core/Modules/perform/performInterface';
-import { getBooleanArgByKey, getStringArgByKey } from '@/Core/util/getSentenceArg';
+import { getBooleanArgByKey, getStringArgByKey, resolveTransformArgs } from '@/Core/util/getSentenceArg';
 import { IAnimationObject } from '@/Core/controller/stage/pixi/PixiController';
 import { logger } from '@/Core/util/logger';
 import { IUserAnimation } from '../Modules/animations';
@@ -26,10 +26,9 @@ export const setTempAnimation = (sentence: ISentence): IPerform => {
   WebGAL.animationManager.addAnimation(newAnimation);
   const animationDuration = getAnimateDuration(animationName);
   const target = getStringArgByKey(sentence, 'target') ?? '0';
-  const writeDefault = getBooleanArgByKey(sentence, 'writeDefault') ?? false;
   const keep = getBooleanArgByKey(sentence, 'keep') ?? false;
   const parallel = getBooleanArgByKey(sentence, 'parallel') ?? false;
-  const writeFullEffect = !parallel && !(getBooleanArgByKey(sentence, 'ignoreDefault') ?? false);
+  const { writeDefault, writeFullEffect } = resolveTransformArgs(sentence, parallel);
 
   const key = `${target}-${animationName}-${animationDuration}`;
   const performInitName = `animation-${target}`;
@@ -43,9 +42,8 @@ export const setTempAnimation = (sentence: ISentence): IPerform => {
     if (keep && keepAnimationStopped) {
       return;
     }
-    WebGAL.gameplay.pixiStage?.stopPresetAnimationOnTarget(target);
     const animationObj: IAnimationObject | null = animationTimeline
-      ? generateTimelineObj(animationTimeline, target, animationDuration, false)
+      ? generateTimelineObj(animationTimeline, target, animationDuration)
       : null;
     if (animationObj) {
       logger.debug(`动画${animationName}作用在${target}`, animationDuration);
@@ -58,7 +56,8 @@ export const setTempAnimation = (sentence: ISentence): IPerform => {
       keepAnimationStopped = true;
       return;
     }
-    WebGAL.gameplay.pixiStage?.removeAnimationWithSetEffects(key);
+    // 终态已在命令函数阶段写入 effects，这里只把容器推到终态，不回写演算状态
+    WebGAL.gameplay.pixiStage?.removeAnimation(key);
   };
 
   return {

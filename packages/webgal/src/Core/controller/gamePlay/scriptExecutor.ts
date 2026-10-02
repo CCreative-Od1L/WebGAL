@@ -1,19 +1,28 @@
 import { commandType, ISentence } from '@/Core/controller/scene/sceneInterface';
 import { runScript } from './runScript';
 import { logger } from '../../util/logger';
-import { restoreScene } from '../scene/restoreScene';
+import { returnFromScene } from '../scene/returnFromScene';
 import { webgalStore } from '@/store/store';
 import { getValueFromStateElseKey } from '@/Core/gameScripts/setVar';
 import { strIf } from '@/Core/controller/gamePlay/strIf';
 import cloneDeep from 'lodash/cloneDeep';
-import { ISceneEntry } from '@/Core/Modules/scene';
 import { WebGAL } from '@/Core/WebGAL';
 import { getBooleanArgByKey, getStringArgByKey } from '@/Core/util/getSentenceArg';
 import { stageStateManager } from '@/Core/Modules/stage/stageStateManager';
 import { jumpToLabel } from '@/Core/gameScripts/label/jumpToLabel';
 import { prefetchCurrentSceneByProgress } from '@/Core/util/prefetcher/progressPrefetcher';
+import { WEBGAL_NONE } from '@/Core/constants';
 
 const MAX_FORWARD_SCRIPT_EXECUTION = 1000;
+
+export interface ScriptExecutionContext {
+  sceneName: string;
+  sentenceId: number;
+}
+
+export interface ScriptExecutionOptions {
+  beforeSentenceExecute?: (context: ScriptExecutionContext) => void;
+}
 
 export const whenChecker = (whenValue: string | undefined): boolean => {
   if (whenValue === undefined) {
@@ -39,7 +48,7 @@ export const whenChecker = (whenValue: string | undefined): boolean => {
  * 语句执行器
  * 执行语句，同步场景状态，并根据情况立即执行下一句或者加入backlog
  */
-export const scriptExecutor = (depth = 0) => {
+export const scriptExecutor = (depth = 0, options: ScriptExecutionOptions = {}) => {
   if (depth > MAX_FORWARD_SCRIPT_EXECUTION) {
     logger.error('forward 中执行的语句数量超过限制，可能存在 jumpLabel 或 -next 死循环');
     return;
@@ -51,17 +60,16 @@ export const scriptExecutor = (depth = 0) => {
     WebGAL.sceneManager.sceneData.currentSentenceId >
     WebGAL.sceneManager.sceneData.currentScene.sentenceList.length - 1
   ) {
-    if (WebGAL.sceneManager.sceneData.sceneStack.length !== 0 && !WebGAL.sceneManager.lockSceneWrite) {
-      const sceneToRestore: ISceneEntry | undefined = WebGAL.sceneManager.sceneData.sceneStack.pop();
-      if (sceneToRestore !== undefined) {
-        restoreScene(sceneToRestore);
-      }
-    }
+    // 没有 return 语句而自然结束，返回空值
+    returnFromScene();
     return;
   }
-  const currentScript: ISentence = cloneDeep(
-    WebGAL.sceneManager.sceneData.currentScene.sentenceList[WebGAL.sceneManager.sceneData.currentSentenceId],
-  );
+  const sentenceId = WebGAL.sceneManager.sceneData.currentSentenceId;
+  options.beforeSentenceExecute?.({
+    sceneName: WebGAL.sceneManager.sceneData.currentScene.sceneName,
+    sentenceId,
+  });
+  const currentScript: ISentence = cloneDeep(WebGAL.sceneManager.sceneData.currentScene.sentenceList[sentenceId]);
 
   const interpolationOneItem = (content: string): string => {
     let retContent = content;
@@ -91,6 +99,7 @@ export const scriptExecutor = (depth = 0) => {
   };
 
   variableInterpolation();
+  if (currentScript.content === WEBGAL_NONE) currentScript.content = '';
 
   // 判断这个脚本要不要执行
   let runThis = true;
@@ -104,7 +113,7 @@ export const scriptExecutor = (depth = 0) => {
   if (!runThis) {
     logger.warn('不满足条件，跳过本句！');
     WebGAL.sceneManager.sceneData.currentSentenceId++;
-    scriptExecutor(depth + 1);
+    scriptExecutor(depth + 1, options);
     return;
   }
 
@@ -115,7 +124,7 @@ export const scriptExecutor = (depth = 0) => {
       logger.warn(`未找到标签 ${currentScript.content}，跳过 jumpLabel`);
       WebGAL.sceneManager.sceneData.currentSentenceId++;
     }
-    scriptExecutor(depth + 1);
+    scriptExecutor(depth + 1, options);
     return;
   }
 
@@ -148,7 +157,7 @@ export const scriptExecutor = (depth = 0) => {
   if (isNext && !hasPendingBlockingStateCalculationPerform && !WebGAL.sceneManager.lockSceneWrite) {
     WebGAL.sceneManager.sceneData.currentSentenceId++;
     saveBacklogIfNeeded();
-    scriptExecutor(depth + 1);
+    scriptExecutor(depth + 1, options);
     return;
   }
 

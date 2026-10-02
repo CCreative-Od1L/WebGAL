@@ -1,6 +1,11 @@
 import { ISentence } from '@/Core/controller/scene/sceneInterface';
 import { IPerform } from '@/Core/Modules/perform/performInterface';
-import { getBooleanArgByKey, getNumberArgByKey, getStringArgByKey } from '@/Core/util/getSentenceArg';
+import {
+  getBooleanArgByKey,
+  getNumberArgByKey,
+  getStringArgByKey,
+  resolveTransformArgs,
+} from '@/Core/util/getSentenceArg';
 import { IAnimationObject } from '@/Core/controller/stage/pixi/PixiController';
 import { logger } from '@/Core/util/logger';
 import { AnimationFrame, IUserAnimation } from '../Modules/animations';
@@ -9,6 +14,7 @@ import { WebGAL } from '@/Core/WebGAL';
 import { applyAnimationEndState, getAnimateDuration } from '../Modules/animationFunctions';
 import { v4 as uuid } from 'uuid';
 import { generateTimelineObj } from '@/Core/controller/stage/pixi/animations/timeline';
+import { parseSetTransformFrame } from './parseTransformFrame';
 /**
  * 设置变换
  * @param sentence
@@ -20,23 +26,20 @@ export const setTransform = (sentence: ISentence): IPerform => {
 
   const duration = getNumberArgByKey(sentence, 'duration') ?? 500;
   const ease = getStringArgByKey(sentence, 'ease') ?? '';
-  const writeDefault = getBooleanArgByKey(sentence, 'writeDefault') ?? false;
   const target = getStringArgByKey(sentence, 'target') ?? '0';
   const keep = getBooleanArgByKey(sentence, 'keep') ?? false;
   const parallel = getBooleanArgByKey(sentence, 'parallel') ?? false;
-  const writeFullEffect = !parallel && !(getBooleanArgByKey(sentence, 'ignoreDefault') ?? false);
+  const { writeDefault, writeFullEffect } = resolveTransformArgs(sentence, parallel);
 
   const performInitName = `animation-${target}`;
   const performName = parallel ? `${performInitName}#${animationName}` : performInitName;
 
   if (!parallel) WebGAL.gameplay.performController.unmountPerform(performInitName, true);
 
-  try {
-    const frame = JSON.parse(animationString) as AnimationFrame;
+  const frame = parseSetTransformFrame(animationString);
+  if (frame) {
     animationObj = generateTransformAnimationObj(target, frame, duration, ease, writeFullEffect);
-    console.log('animationObj:', animationObj);
-  } catch (e) {
-    // 解析都错误了，歇逼吧
+  } else {
     animationObj = [];
   }
 
@@ -50,9 +53,8 @@ export const setTransform = (sentence: ISentence): IPerform => {
     if (keep && keepAnimationStopped) {
       return;
     }
-    WebGAL.gameplay.pixiStage?.stopPresetAnimationOnTarget(target);
     const animationObj: IAnimationObject | null = animationTimeline
-      ? generateTimelineObj(animationTimeline, target, animationDuration, false)
+      ? generateTimelineObj(animationTimeline, target, animationDuration)
       : null;
     if (animationObj) {
       logger.debug(`动画${animationName}作用在${target}`, animationDuration);
@@ -65,7 +67,8 @@ export const setTransform = (sentence: ISentence): IPerform => {
       keepAnimationStopped = true;
       return;
     }
-    WebGAL.gameplay.pixiStage?.removeAnimationWithSetEffects(key);
+    // 终态已在命令函数阶段写入 effects，这里只把容器推到终态，不回写演算状态
+    WebGAL.gameplay.pixiStage?.removeAnimation(key);
   };
 
   return {

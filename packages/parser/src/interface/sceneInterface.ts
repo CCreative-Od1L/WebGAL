@@ -40,6 +40,8 @@ export enum commandType {
   applyStyle,
   wait,
   callSteam, // 调用Steam功能
+  return, // 从被调用的场景返回
+  changeFigureDiff, // 切换等尺寸静态立绘差分；追加以保持旧指令编号
 }
 
 /**
@@ -71,9 +73,18 @@ export interface ISentence {
   commandRaw: string; // 命令的原始内容，方便调试
   content: string; // 语句内容
   args: Array<arg>; // 参数列表
-  sentenceAssets: Array<IAsset>; // 语句携带的资源列表
-  subScene: Array<string>; // 语句包含子场景列表
+  sentenceAssets: Array<IAsset>; // 语句携带的资源列表；SceneParser 未提供 assetsPrefetcher 时为空
+  subScene: Array<string>; // 语句包含子场景列表；未提供 assetsPrefetcher 时为空
   inlineComment: string; // 行内注释
+  /**
+   * 本语句在原始场景文件中占据的行范围（0-based，含首尾）。
+   * 单行语句 startLine === endLine；多行语句 endLine 指向最后一条续行。
+   * 图形编辑器据此做「只替换被编辑语句所占的行」。
+   */
+  startLine: number;
+  endLine: number;
+  /** 本条是多行语句被折叠掉的续行占位，仅用于补齐行数，不应展示给用户 */
+  isLineBreakHolder: boolean;
 }
 
 /**
@@ -84,8 +95,8 @@ export interface IScene {
   sceneName: string; // 场景名称
   sceneUrl: string; // 场景url
   sentenceList: Array<ISentence>; // 语句列表
-  assetsList: Array<IAsset>; // 资源列表
-  subSceneList: Array<string>; // 子场景的url列表
+  assetsList: Array<IAsset>; // 资源列表；未提供 assetsPrefetcher 时为空
+  subSceneList: Array<string>; // 子场景的url列表；未提供 assetsPrefetcher 时为空
 }
 
 /**

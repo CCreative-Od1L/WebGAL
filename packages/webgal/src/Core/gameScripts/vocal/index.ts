@@ -1,6 +1,6 @@
 import { ISentence } from '@/Core/controller/scene/sceneInterface';
 import { logger } from '@/Core/util/logger';
-import { getBooleanArgByKey, getNumberArgByKey, getStringArgByKey } from '@/Core/util/getSentenceArg';
+import { getFigurePositionFromArgs, getNumberArgByKey, getStringArgByKey } from '@/Core/util/getSentenceArg';
 import { IStageState } from '@/Core/Modules/stage/stageInterface';
 import {
   audioContextWrapper,
@@ -29,11 +29,7 @@ export const playVocal = (sentence: ISentence) => {
   let currentStageState: IStageState;
   currentStageState = stageStateManager.getCalculationStageState();
 
-  let pos: 'center' | 'left' | 'right' = 'center';
-  const leftFromArgs = getBooleanArgByKey(sentence, 'left') ?? false;
-  const rightFromArgs = getBooleanArgByKey(sentence, 'right') ?? false;
-  if (leftFromArgs) pos = 'left';
-  if (rightFromArgs) pos = 'right';
+  let pos = getFigurePositionFromArgs(sentence) || 'center';
 
   let key = getStringArgByKey(sentence, 'figureId') ?? '';
 
@@ -73,6 +69,8 @@ export const playVocal = (sentence: ISentence) => {
     isHoldOn: false,
     skipNextCollect: true,
     startFunction: () => {
+      // commit 只同步舞台状态，音频元素的 key/src 和音量仍由 React 渲染及 effect 更新。
+      // 暂留延时避免操作旧元素；1ms 不保证就绪，移除前应改为音频元素就绪通知。
       startTimer = setTimeout(async () => {
         const VocalControl = document.getElementById('currentVocal') as HTMLMediaElement | null;
         if (VocalControl === null) {
@@ -138,6 +136,7 @@ export const playVocal = (sentence: ISentence) => {
           const animationEndTime = Date.now() + 10000;
           performBlinkAnimation({ key, animationItem, pos, animationEndTime });
 
+          // 到达本轮眨眼的 10 秒时限后取消后续调度，不能在启动时就清除。
           blinkEndTimer = setTimeout(() => {
             clearTimeout(audioContextWrapper.blinkTimerID);
           }, 10000);

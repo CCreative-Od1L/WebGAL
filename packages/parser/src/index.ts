@@ -9,12 +9,20 @@ import { fileType } from './interface/assets';
 import { IAsset } from './interface/sceneInterface';
 import { sceneParser } from './sceneParser';
 import { IWebGALStyleObj, scss2cssinjsParser } from "./styleParser";
-import { sceneTextPreProcess } from "./sceneTextPreProcessor";
+import {
+  isLineBreakPlaceholder,
+  sceneTextPreProcess,
+  WEBGAL_LINE_BREAK_MARK,
+} from "./sceneTextPreProcessor";
 
 export default class SceneParser {
   private readonly SCRIPT_CONFIG_MAP: ConfigMap;
+  /**
+   * @param assetsPrefetcher 资源预取回调。省略时不收集资源：`sentenceAssets`、`subScene`、
+   * `assetsList`、`subSceneList` 均为空数组，适用于只需要语句结构的调用方（编辑器语法解析等）。
+   */
   constructor(
-    private readonly assetsPrefetcher: (assetList: IAsset[]) => void,
+    private readonly assetsPrefetcher: ((assetList: IAsset[]) => void) | undefined,
     private readonly assetSetter: (
       fileName: string,
       assetType: fileType,
@@ -77,4 +85,4 @@ export default class SceneParser {
 }
 
 export { ADD_NEXT_ARG_LIST, SCRIPT_CONFIG };
-export { sceneTextPreProcess };
+export { sceneTextPreProcess, isLineBreakPlaceholder, WEBGAL_LINE_BREAK_MARK };

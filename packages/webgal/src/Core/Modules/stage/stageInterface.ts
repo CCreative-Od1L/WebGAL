@@ -1,5 +1,6 @@
 import { ISentence } from '@/Core/controller/scene/sceneInterface';
 import { BlinkParam, FocusParam } from '@/Core/live2DCore';
+import type { Transform } from '@/types/editorPreviewProtocol';
 
 /**
  * 游戏内变量
@@ -24,49 +25,7 @@ export interface IChooseItem {
   isSubScene: boolean; // 是否是子场景调用
 }
 
-export interface ITransform {
-  alpha?: number;
-  scale?: {
-    x?: number;
-    y?: number;
-  };
-  // pivot: {
-  //   x: number;
-  //   y: number;
-  // };
-  position?: {
-    x?: number;
-    y?: number;
-  };
-  rotation?: number;
-  blur?: number;
-  brightness?: number;
-  contrast?: number;
-  saturation?: number;
-  gamma?: number;
-  colorRed?: number;
-  colorGreen?: number;
-  colorBlue?: number;
-  bevel?: number;
-  bevelThickness?: number;
-  bevelRotation?: number;
-  bevelSoftness?: number;
-  bevelRed?: number;
-  bevelGreen?: number;
-  bevelBlue?: number;
-  bloom?: number;
-  bloomBrightness?: number;
-  bloomBlur?: number;
-  bloomThreshold?: number;
-  oldFilm?: number;
-  dotFilm?: number;
-  reflectionFilm?: number;
-  glitchFilm?: number;
-  rgbFilm?: number;
-  godrayFilm?: number;
-  shockwaveFilter?: number;
-  radiusAlphaFilter?: number;
-}
+export type ITransform = Transform;
 
 /**
  * 基本效果接口
@@ -104,10 +63,6 @@ export const baseTransform: ITransform = {
     x: 1,
     y: 1,
   },
-  // pivot: {
-  //   x: 0.5,
-  //   y: 0.5,
-  // },
   position: {
     x: 0,
     y: 0,
@@ -142,10 +97,60 @@ export const baseTransform: ITransform = {
   radiusAlphaFilter: 0,
 };
 
+/**
+ * 立绘的预设位置，left / right 为靠边定位，其余均为中心定位
+ */
+export const FIGURE_POSITIONS = ['center', 'left', 'right', 'left13', 'right13', 'left14', 'right14'] as const;
+
+export type IFigurePosition = (typeof FIGURE_POSITIONS)[number];
+
+export const FIGURE_KEYS = FIGURE_POSITIONS.map((position) => `fig-${position}`);
+
+export const figureStateKeyByPosition = {
+  center: 'figName',
+  left: 'figNameLeft',
+  right: 'figNameRight',
+  left13: 'figNameLeft13',
+  right13: 'figNameRight13',
+  left14: 'figNameLeft14',
+  right14: 'figNameRight14',
+} as const satisfies Record<IFigurePosition, keyof IStageState>;
+
+/**
+ * 计算立绘的基准 X 坐标
+ */
+export function getFigureBaseX(position: IFigurePosition, stageWidth: number, targetWidth: number): number {
+  switch (position) {
+    case 'left':
+      return targetWidth / 2;
+    case 'right':
+      return stageWidth - targetWidth / 2;
+    case 'left13':
+      return stageWidth / 3;
+    case 'right13':
+      return (stageWidth * 2) / 3;
+    case 'left14':
+      return stageWidth / 4;
+    case 'right14':
+      return (stageWidth * 3) / 4;
+    default:
+      return stageWidth / 2;
+  }
+}
+
 export interface IFreeFigure {
-  basePosition: 'left' | 'center' | 'right';
+  basePosition: IFigurePosition;
   name: string;
   key: string;
+}
+
+/**
+ * Live2D 自定义绘制范围的归一：未指定与全 0 是同一件事。
+ *
+ * 绘制范围参与立绘身份判定，演算与提交两侧必须用同一个口径，否则会把没变的立绘判成换了一张。
+ */
+export function normalizeFigureBounds(bounds?: [number, number, number, number]): [number, number, number, number] {
+  return bounds ?? [0, 0, 0, 0];
 }
 
 export interface IFigureAssociatedAnimation {
@@ -214,6 +219,10 @@ export interface IStageState {
   figName: string; // 立绘_中 文件地址（相对或绝对）
   figNameLeft: string; // 立绘_左 文件地址（相对或绝对）
   figNameRight: string; // 立绘_右 文件地址（相对或绝对）
+  figNameLeft13: string; // 立绘_左 1/3 文件地址（相对或绝对）
+  figNameRight13: string; // 立绘_右 1/3 文件地址（相对或绝对）
+  figNameLeft14: string; // 立绘_左 1/4 文件地址（相对或绝对）
+  figNameRight14: string; // 立绘_右 1/4 文件地址（相对或绝对）
   // 自由立绘
   freeFigure: Array<IFreeFigure>;
   figureAssociatedAnimation: Array<IFigureAssociatedAnimation>;
@@ -248,6 +257,8 @@ export interface IStageState {
   // 当前演出的延迟，用于做对话插演出！
   // currentPerformDelay:number
   currentConcatDialogPrev: string;
+  currentDialogSegments?: string[]; // 按 say 语句保存原文分段，避免 concat 重新合并旧节点；旧存档可能缺省
+  isDialogNotend?: boolean; // notend 的渐显在本句排列结束前完成；旧存档缺省为普通渐显
   // 测试：电影叙事
   enableFilm: string;
   isDisableTextbox: boolean;

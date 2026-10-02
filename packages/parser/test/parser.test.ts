@@ -1,9 +1,21 @@
 import SceneParser from "../src/index";
 import { ADD_NEXT_ARG_LIST, SCRIPT_CONFIG } from "../src/config/scriptConfig";
 import { expect, test } from "vitest";
-import { commandType, ISentence } from "../src/interface/sceneInterface";
+import { commandType, IAsset, ISentence } from "../src/interface/sceneInterface";
 import * as fsp from 'fs/promises';
 import { fileType } from "../src/interface/assets";
+
+/**
+ * 行范围（startLine / endLine / isLineBreakHolder）由 sceneParser 按行号回填，
+ * 与下面各用例关心的解析结果无关，因此断言时统一剥掉。
+ * 行范围本身由 parserMultiline.test.ts 专门覆盖。
+ */
+type SentenceWithoutLineRange = Omit<ISentence, 'startLine' | 'endLine' | 'isLineBreakHolder'>;
+
+const dropLineRange = ({ startLine, endLine, isLineBreakHolder, ...rest }: ISentence): SentenceWithoutLineRange => rest;
+
+const expectSentenceIn = (sentenceList: ISentence[], expected: SentenceWithoutLineRange) =>
+  expect(sentenceList.map(dropLineRange)).toContainEqual(expected);
 
 test("label", async () => {
 
@@ -16,7 +28,7 @@ test("label", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(sceneText, "start", "/start.txt");
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.label,
     commandRaw: "label",
     content: "end",
@@ -27,7 +39,7 @@ test("label", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("args", async () => {
@@ -41,7 +53,7 @@ test("args", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(sceneText, "start", "/start.txt");
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.changeFigure,
     commandRaw: "changeFigure",
     content: "m2.png",
@@ -53,7 +65,7 @@ test("args", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("choose", async () => {
@@ -67,7 +79,7 @@ test("choose", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(sceneText, "choose", "/choose.txt");
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.choose,
     commandRaw: "choose",
     content: "",
@@ -76,7 +88,7 @@ test("choose", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("long-script", async () => {
@@ -93,7 +105,7 @@ test("long-script", async () => {
   console.time('parse-time-consumed');
   const result = parser.parse(sceneText, "start", "/start.txt");
   console.timeEnd('parse-time-consumed');
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.label,
     commandRaw: "label",
     content: "end",
@@ -104,7 +116,7 @@ test("long-script", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("var", async () => {
@@ -118,7 +130,7 @@ test("var", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(sceneText, "var", "/var.txt");
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.say,
     commandRaw: "WebGAL",
     content: "a=1?",
@@ -127,7 +139,7 @@ test("var", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("config", async () => {
@@ -190,7 +202,7 @@ test("say statement", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(`say:123 -speaker=xx;`, 'test', 'test');
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.say,
     commandRaw: "say",
     content: "123",
@@ -199,7 +211,7 @@ test("say statement", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("say statement applies asset setter to vocal named argument", async () => {
@@ -223,6 +235,86 @@ test("say statement applies asset setter to vocal named argument", async () => {
   });
 });
 
+test("audio commands accept opus resources", async () => {
+  const parser = new SceneParser((assetList) => {
+  }, (fileName, assetType) => {
+    return `./game/${assetType === fileType.bgm ? 'bgm' : 'vocal'}/${fileName}`;
+  }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
+
+  const result = parser.parse(`say:123 -a.opus;
+bgm:track.opus;
+playEffect:se.opus;
+unlockBgm:extra.opus;`, 'test', 'test');
+
+  expect(result.sentenceList[0].args).toContainEqual({ key: 'vocal', value: './game/vocal/a.opus' });
+  expect(result.sentenceList[0].sentenceAssets).toContainEqual({
+    name: './game/vocal/a.opus',
+    url: './game/vocal/a.opus',
+    type: fileType.vocal,
+    lineNumber: 0,
+  });
+  expect(result.sentenceList[1].content).toBe('./game/bgm/track.opus');
+  expect(result.sentenceList[2].content).toBe('./game/vocal/se.opus');
+  expect(result.sentenceList[3].content).toBe('./game/bgm/extra.opus');
+});
+
+test("scene assets are deduplicated by type and url", async () => {
+  let prefetchedAssets: IAsset[] = [];
+  const parser = new SceneParser((assetList) => {
+    prefetchedAssets = assetList;
+  }, (fileName, assetType) => {
+    return fileName;
+  }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
+
+  const result = parser.parse(`changeBg:shared.webp;
+changeFigure:shared.webp;
+changeBg:shared.webp;`, 'test', 'test');
+
+  expect(result.assetsList).toEqual([
+    { name: "shared.webp", url: 'shared.webp', type: fileType.background, lineNumber: 0 },
+    { name: "shared.webp", url: 'shared.webp', type: fileType.figure, lineNumber: 1 },
+  ]);
+  expect(prefetchedAssets).toEqual(result.assetsList);
+});
+
+test("scene assets skip entries with empty urls", async () => {
+  const parser = new SceneParser((assetList) => {
+  }, (fileName, assetType) => {
+    if (assetType === fileType.vocal) {
+      return '';
+    }
+    return fileName;
+  }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
+
+  const result = parser.parse(`say:123 -vocal=missing.mp3;`, 'test', 'test');
+
+  expect(result.assetsList).toEqual([]);
+});
+
+test("scene assets and subscenes are accumulated from every statement", async () => {
+  let prefetchedAssets: IAsset[] = [];
+  const parser = new SceneParser((assetList) => {
+    prefetchedAssets = assetList;
+  }, (fileName, assetType) => {
+    return fileName;
+  }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
+
+  const result = parser.parse(`changeBg:a.webp;
+changeFigure:b.png -id=b;
+say:voice line -vocal=c.mp3;
+changeBg:a.webp;
+callScene:chapter1.txt;
+callScene:chapter2.txt;`, 'test', 'test');
+
+  expect(result.assetsList).toEqual([
+    { name: 'a.webp', url: 'a.webp', type: fileType.background, lineNumber: 0 },
+    { name: 'b.png', url: 'b.png', type: fileType.figure, lineNumber: 1 },
+    { name: 'c.mp3', url: 'c.mp3', type: fileType.vocal, lineNumber: 2 },
+  ]);
+  expect(prefetchedAssets).toEqual(result.assetsList);
+  expect(result.subSceneList).toEqual(['chapter1.txt', 'chapter2.txt']);
+});
+
 test("wait command", async () => {
   const parser = new SceneParser((assetList) => {
   }, (fileName, assetType) => {
@@ -230,7 +322,7 @@ test("wait command", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(`wait:1000;`, 'test', 'test');
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.wait,
     commandRaw: "wait",
     content: "1000",
@@ -239,7 +331,7 @@ test("wait command", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("changeFigure with duration and animation args", async () => {
@@ -249,7 +341,7 @@ test("changeFigure with duration and animation args", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(`changeFigure:stand.webp -duration=1000 -enter=fadeIn -exit=fadeOut;`, 'test', 'test');
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.changeFigure,
     commandRaw: "changeFigure",
     content: "stand.webp",
@@ -262,7 +354,7 @@ test("changeFigure with duration and animation args", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("changeBg with animation parameters", async () => {
@@ -272,7 +364,7 @@ test("changeBg with animation parameters", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(`changeBg:background.jpg -duration=2000 -enter=slideIn -transform={"alpha":0.8};`, 'test', 'test');
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.changeBg,
     commandRaw: "changeBg",
     content: "background.jpg",
@@ -285,7 +377,7 @@ test("changeBg with animation parameters", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("inline comment is preserved on normal statement", async () => {
@@ -295,7 +387,7 @@ test("inline comment is preserved on normal statement", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(`say:123 -speaker=xx; // this is an inline comment`, 'test', 'test');
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.say,
     commandRaw: "say",
     content: "123",
@@ -304,7 +396,7 @@ test("inline comment is preserved on normal statement", async () => {
     subScene: [],
     inlineComment: "// this is an inline comment"
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("escaped semicolon is preserved in content and inline comment is preserved", async () => {
@@ -314,7 +406,7 @@ test("escaped semicolon is preserved in content and inline comment is preserved"
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(String.raw`say:price\;100;comment-part`, 'test', 'test');
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.say,
     commandRaw: "say",
     content: "price;100",
@@ -323,7 +415,26 @@ test("escaped semicolon is preserved in content and inline comment is preserved"
     subScene: [],
     inlineComment: "comment-part"
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
+});
+
+test("inline comment preserves following semicolons", async () => {
+  const parser = new SceneParser((assetList) => {
+  }, (fileName, assetType) => {
+    return fileName;
+  }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
+
+  const result = parser.parse(`say:123; first; second; third`, 'test', 'test');
+  const expectSentenceItem: SentenceWithoutLineRange = {
+    command: commandType.say,
+    commandRaw: "say",
+    content: "123",
+    args: [],
+    sentenceAssets: [],
+    subScene: [],
+    inlineComment: "first; second; third"
+  };
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });
 
 test("comment-only line keeps comment in content", async () => {
@@ -333,7 +444,7 @@ test("comment-only line keeps comment in content", async () => {
   }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
 
   const result = parser.parse(`; only comment here`, 'test', 'test');
-  const expectSentenceItem: ISentence = {
+  const expectSentenceItem: SentenceWithoutLineRange = {
     command: commandType.comment,
     commandRaw: "comment",
     content: "only comment here",
@@ -342,5 +453,24 @@ test("comment-only line keeps comment in content", async () => {
     subScene: [],
     inlineComment: ""
   };
-  expect(result.sentenceList).toContainEqual(expectSentenceItem);
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
+});
+
+test("comment-only line preserves following semicolons", async () => {
+  const parser = new SceneParser((assetList) => {
+  }, (fileName, assetType) => {
+    return fileName;
+  }, ADD_NEXT_ARG_LIST, SCRIPT_CONFIG);
+
+  const result = parser.parse(`; first; second; third`, 'test', 'test');
+  const expectSentenceItem: SentenceWithoutLineRange = {
+    command: commandType.comment,
+    commandRaw: "comment",
+    content: "first; second; third",
+    args: [{ key: 'next', value: true }],
+    sentenceAssets: [],
+    subScene: [],
+    inlineComment: ""
+  };
+  expectSentenceIn(result.sentenceList, expectSentenceItem);
 });

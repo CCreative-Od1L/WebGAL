@@ -10,11 +10,14 @@ import cloneDeep from 'lodash/cloneDeep';
 
 import { WebGAL } from '@/Core/WebGAL';
 import { stageStateManager } from '@/Core/Modules/stage/stageStateManager';
+import { commandType } from '@/Core/controller/scene/sceneInterface';
+import { getBooleanArgByKey } from '@/Core/util/getSentenceArg';
+import { createSayPerform } from '@/Core/gameScripts/say/createSayPerform';
 
 /**
  * 恢复演出
  */
-export const restorePerform = () => {
+export const restorePerform = (skipAnimation = false) => {
   const stageState = stageStateManager.getCalculationStageState();
   const performToRestore = cloneDeep(stageState.PerformList);
   // 清除状态表中演出序列
@@ -22,12 +25,20 @@ export const restorePerform = () => {
   WebGAL.gameplay.performController.beginCollectingPerforms();
   try {
     performToRestore.forEach((e) => {
+      if (e.script.command === commandType.say) {
+        // 正文和分段已经在存档中，只重建演出，不能重跑 say 再追加一次 concat。
+        if (stageState.isDialogNotend === undefined) {
+          stageStateManager.setStage('isDialogNotend', getBooleanArgByKey(e.script, 'notend') ?? false);
+        }
+        WebGAL.gameplay.performController.arrangeNewPerform(createSayPerform(e.script), e.script);
+        return;
+      }
       runScript(e.script);
     });
   } finally {
     WebGAL.gameplay.performController.endCollectingPerforms();
   }
-  stageStateManager.commit({ applyPixiEffects: false });
+  stageStateManager.commit({ applyPixiEffects: false, skipAnimation });
   WebGAL.gameplay.performController.commitPendingPerforms();
   stageStateManager.applyCommittedPixiEffects();
 };
@@ -54,6 +65,7 @@ export const jumpFromBacklog = (index: number, refetchScene = true) => {
     });
   WebGAL.sceneManager.sceneData.currentSentenceId = backlogFile.saveScene.currentSentenceId;
   WebGAL.sceneManager.sceneData.sceneStack = cloneDeep(backlogFile.saveScene.sceneStack);
+  WebGAL.sceneManager.sceneData.currentLocals = cloneDeep(backlogFile.saveScene.currentLocals ?? {}); // 旧存档没有此字段
 
   // 强制停止所有演出
   stopAllPerform();
@@ -75,7 +87,7 @@ export const jumpFromBacklog = (index: number, refetchScene = true) => {
   stageStateManager.replaceCalculationStageState(newStageState);
 
   // 恢复演出
-  setTimeout(restorePerform, 0);
+  restorePerform();
 
   // 关闭backlog界面
   dispatch(setVisibility({ component: 'showBacklog', visibility: false }));
@@ -84,5 +96,5 @@ export const jumpFromBacklog = (index: number, refetchScene = true) => {
   dispatch(setVisibility({ component: 'showTextBox', visibility: true }));
 
   // 重新渲染
-  setTimeout(() => WebGAL.gameplay.pixiStage?.requestRender(), 100);
+  WebGAL.gameplay.pixiStage?.requestRender();
 };

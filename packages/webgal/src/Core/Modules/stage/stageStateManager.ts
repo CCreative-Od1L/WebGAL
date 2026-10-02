@@ -1,10 +1,12 @@
 import cloneDeep from 'lodash/cloneDeep';
+import { WebGAL } from '@/Core/WebGAL';
 import { isUndefined, omitBy } from 'lodash';
 import { commandType } from '@/Core/controller/scene/sceneInterface';
 import { STAGE_KEYS } from '@/Core/constants';
 import { baseBlinkParam, baseFocusParam } from '@/Core/live2DCore';
 import {
   baseTransform,
+  FIGURE_KEYS,
   IEffect,
   IFigureMetadata,
   IFreeFigure,
@@ -23,12 +25,14 @@ export interface IStageCommitOptions {
   syncPixiStage?: boolean;
   applyPixiEffects?: boolean;
   notifyReact?: boolean;
+  skipAnimation?: boolean;
 }
 
 export interface IResolvedStageCommitOptions {
   syncPixiStage: boolean;
   applyPixiEffects: boolean;
   notifyReact: boolean;
+  skipAnimation: boolean;
 }
 
 type StageCommitHandler = (stageState: IStageState, options: IResolvedStageCommitOptions) => void;
@@ -39,6 +43,10 @@ export const initState: IStageState = {
   figName: '',
   figNameLeft: '',
   figNameRight: '',
+  figNameLeft13: '',
+  figNameRight13: '',
+  figNameLeft14: '',
+  figNameRight14: '',
   freeFigure: [],
   figureAssociatedAnimation: [],
   isRead: false,
@@ -74,6 +82,8 @@ export const initState: IStageState = {
   live2dBlink: [],
   live2dFocus: [],
   currentConcatDialogPrev: '',
+  currentDialogSegments: [],
+  isDialogNotend: false,
   enableFilm: '',
   isDisableTextbox: false,
   replacedUIlable: {},
@@ -119,31 +129,32 @@ export class StageStateManager {
   }
 
   public replaceCalculationStageState(stageState: IStageState) {
+    // 读档、回溯与场景重建只恢复普通状态，不能携带上一次演算的换图意图。
+    WebGAL.figureDiffManager.clear();
     this.calculationStageState = cloneDeep(stageState);
   }
 
-  public replaceAllStageState(stageState: IStageState) {
-    this.calculationStageState = cloneDeep(stageState);
-    this.commit();
+  public replaceAllStageState(stageState: IStageState, options?: IStageCommitOptions) {
+    this.replaceCalculationStageState(stageState);
+    this.commit(options);
   }
 
   public resetCalculationStageState(stageState: IStageState) {
     this.replaceCalculationStageState(stageState);
   }
 
-  public resetAllStageState(stageState: IStageState) {
-    this.replaceAllStageState(stageState);
+  public resetAllStageState(stageState: IStageState, options?: IStageCommitOptions) {
+    this.replaceAllStageState(stageState, options);
   }
 
   public updateEffect(payload: IEffect) {
     const { target, transform } = payload;
+    WebGAL.figureDiffManager.clear(target);
     const state = this.calculationStageState;
     const activeTargets = [
       STAGE_KEYS.STAGE_MAIN,
       STAGE_KEYS.BGMAIN,
-      STAGE_KEYS.FIG_C,
-      STAGE_KEYS.FIG_L,
-      STAGE_KEYS.FIG_R,
+      ...FIGURE_KEYS,
       ...state.freeFigure.map((figure) => figure.key),
     ];
     if (!activeTargets.includes(target)) return;
@@ -183,6 +194,8 @@ export class StageStateManager {
 
   public updateAnimationSettings(payload: IUpdateAnimationSettingPayload) {
     const { target, key, value } = payload;
+    // 后续普通换图或自定义过渡覆盖了目标；差分指令会在自身状态更新完毕后重新打标。
+    WebGAL.figureDiffManager.clear(target);
     const state = this.calculationStageState;
     const animationIndex = state.animationSettings.findIndex((a) => a.target === target);
     if (animationIndex >= 0) {
@@ -286,7 +299,10 @@ export class StageStateManager {
     } else {
       this.calculationStageState.live2dMotion[index].motion = motion;
       this.calculationStageState.live2dMotion[index].skin = skin;
-      this.calculationStageState.live2dMotion[index].overrideBounds = overrideBounds;
+      // 绘制范围参与立绘身份判定，没指定就沿用旧值，否则只改动作也会被当成换了一张立绘
+      if (overrideBounds !== undefined) {
+        this.calculationStageState.live2dMotion[index].overrideBounds = overrideBounds;
+      }
     }
   }
 
@@ -344,7 +360,11 @@ export class StageStateManager {
   }
 
   public clearUncommittedNonHoldPerforms() {
-    this.calculationStageState.PerformList = this.calculationStageState.PerformList.filter((perform) => perform.isHoldOn);
+    // 快速预览丢弃演出时，一并丢弃其尚未上屏的差分标记。
+    WebGAL.figureDiffManager.clear();
+    this.calculationStageState.PerformList = this.calculationStageState.PerformList.filter(
+      (perform) => perform.isHoldOn,
+    );
   }
 
   public removeNonHoldPerformsAndCommit() {
@@ -357,6 +377,7 @@ export class StageStateManager {
       syncPixiStage: options.syncPixiStage ?? true,
       applyPixiEffects: options.applyPixiEffects ?? true,
       notifyReact: options.notifyReact ?? true,
+      skipAnimation: options.skipAnimation ?? false,
     };
     this.viewStageState = cloneDeep(this.calculationStageState);
     this.commitHandler?.(this.viewStageState, resolvedOptions);
@@ -370,6 +391,7 @@ export class StageStateManager {
       syncPixiStage: false,
       applyPixiEffects: true,
       notifyReact: false,
+      skipAnimation: false,
     });
   }
 
